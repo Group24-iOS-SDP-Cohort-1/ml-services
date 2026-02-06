@@ -3,4 +3,6 @@ uvicorn
 hdbscan
 numpy
 scikit-learn
+scipy
+keybert
 sentence-transformers
