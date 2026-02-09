@@ -32,6 +32,9 @@ def run_hdbscan(
 
     labels = clusterer.fit_predict(X)
 
+    # ✅ Convert NumPy labels → Python int
+    labels = [int(x) for x in labels]
+
     # -------- Outliers --------
     outliers = [i for i, l in enumerate(labels) if l == -1]
 
@@ -39,6 +42,7 @@ def run_hdbscan(
     cluster_sizes = {}
     for label in labels:
         if label != -1:
+            label = int(label)
             cluster_sizes[label] = cluster_sizes.get(label, 0) + 1
 
     # -------- Cluster Grouping --------
@@ -46,10 +50,12 @@ def run_hdbscan(
     for idx, label in enumerate(labels):
         if label == -1:
             continue
+        label = int(label)
         cluster_texts.setdefault(label, []).append(idx)
 
+
     # -------- Unified Labels per Cluster --------
-    unified_labels = {}
+    unified_labels: dict[int, dict] = {}
 
     for cluster_id, indices in cluster_texts.items():
         cluster_docs = [texts[i] for i in indices]
@@ -78,9 +84,17 @@ def run_hdbscan(
         if size < 3:
             gaps.append(f"Cluster {cid} is weak (only {size} items).")
 
+    # =====================================================
+    # ✅ FINAL FIX: Convert dict keys → strings for JSON
+    # =====================================================
+
+    cluster_sizes = {str(k): int(v) for k, v in cluster_sizes.items()}
+    cluster_texts = {str(k): v for k, v in cluster_texts.items()}
+    unified_labels = {str(k): v for k, v in unified_labels.items()}
+
     # -------- Final Response --------
     return {
-        "labels": labels.tolist(),
+        "labels": labels,
         "outliers": outliers,
         "clusters": cluster_sizes,
         "cluster_texts": cluster_texts,
