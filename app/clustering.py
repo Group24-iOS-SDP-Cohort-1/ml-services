@@ -3,8 +3,8 @@ import numpy as np
 from sklearn.preprocessing import normalize
 from sklearn.decomposition import PCA
 
-from app.labeling import extract_keywords, generate_cluster_summary
-
+from app.labeling import generate_cluster_summary
+from app.labeling import extract_keywords
 
 def run_hdbscan(
     embeddings: list[list[float]],

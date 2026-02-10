@@ -1,28 +1,22 @@
 from fastapi import FastAPI, HTTPException
-from sentence_transformers import SentenceTransformer
-from keybert import KeyBERT
+
+
 from dotenv import load_dotenv
 load_dotenv()
 
-from app.schemas import ClusterRequest, ClusterResponse
 from app.clustering import run_hdbscan
+from app.schemas import ClusterRequest
 
 #  Gemini Imports
 from app.gemini_client import analyze_clusters_with_gemini
 from app.gemini_payload import build_gemini_payload
-
-
-app = FastAPI(title="HDBSCAN Clustering + Labelling Service")
-
-# =====================================================
-#  Load Models Once
-# =====================================================
+from app.labeling import extract_keywords
+from sentence_transformers import SentenceTransformer
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# KeyBERT uses the same embedding model
-kw_model = KeyBERT(embedding_model)
 
+app = FastAPI(title="HDBSCAN Clustering + Labelling Service")
 
 # =====================================================
 #  Example Cleaner
@@ -45,31 +39,6 @@ def clean_example(text: str, max_len=140):
 
     first_sentence = text.split(".")[0]
     return first_sentence[:max_len].strip()
-
-
-# =====================================================
-# ✅ Keyword Extractor (KeyBERT)
-# =====================================================
-
-def extract_keywords(examples: list, top_n=6):
-    """
-    Extract meaningful cluster keywords using KeyBERT.
-    Uses cluster examples as context.
-    """
-    if not examples:
-        return []
-
-    joined_text = " ".join(examples)
-
-    keywords = kw_model.extract_keywords(
-        joined_text,
-        keyphrase_ngram_range=(1, 2),
-        stop_words="english",
-        top_n=top_n
-    )
-
-    return [kw[0] for kw in keywords]
-
 
 # =====================================================
 # ✅ Compress unified_labels Safely
@@ -176,11 +145,15 @@ def cluster_texts(payload: ClusterRequest):
 
 
         # Attach Gemini output into response
-        raw_result["gemini_analysis"] = gemini_analysis
+        raw_result["gemini_cluster_analysis"] = gemini_analysis.get(
+        "cluster_analysis", [])
+
+        raw_result["gemini_raw_text"] = gemini_analysis.get("gemini_raw_text", "")
 
     except Exception as e:
         print("⚠️ Gemini failed:", str(e))
-        raw_result["gemini_analysis"] = None
+        raw_result["gemini_cluster_analysis"] = None
+        raw_result["gemini_raw_text"] = ""
 
 
     return raw_result
@@ -193,3 +166,4 @@ def cluster_texts(payload: ClusterRequest):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+

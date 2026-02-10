@@ -14,25 +14,21 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 def extract_json(text: str):
     text = text.strip()
 
-    # Try full direct parse first
+    # 1. Try direct parse
     try:
         return json.loads(text)
     except:
         pass
 
-    # Match object OR array
+    # 2. Extract first JSON-like block
     match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
 
     if not match:
-        print("❌ No JSON found in output")
-        print("🔥 RAW OUTPUT:\n", text)
         return None
 
     try:
         return json.loads(match.group())
-    except Exception as e:
-        print("❌ JSON parse failed:", e)
-        print("🔥 RAW OUTPUT:\n", text)
+    except:
         return None
 
 
@@ -43,26 +39,20 @@ You are an elite YouTube Shorts trend analyst.
 
 User query: "{payload['query']}"
 
-You are a YouTube trend idea generator.
-
-I will give you clusters of trending video themes.
-For EACH cluster, generate exactly ONE scroll-stopping video idea.
-
+For EACH cluster, generate exactly ONE scroll-stopping Shorts idea.
 Your job is to find CONTENT GAPS creators are NOT doing yet.
 
 STRICT RULES:
 - Output must be VALID JSON ONLY (no markdown, no commentary)
-- Every JSON value must be a SINGLE LINE string
-- No multiline text, no unfinished quotes
 - Exactly 1 idea per cluster
+- Description max 8 words
+- title max 12 words; Title must be catchy, fun, and YouTube-attractive
+- No multiline text, no unfinished quotes
 - Do NOT suggest:
   • testing viral hacks
   • reviewing weird tools
   • generic transformations
   • reaction videos
-- Title must be catchy, fun, and YouTube-attractive
-- Hook must be <= 8 words (spoken in 1 second)
-- Each idea must include ONE unexpected twist
 - Each idea must target a clear audience (teen girls, Indian creators, beginners, etc.)
 
 Clusters:
@@ -75,16 +65,12 @@ Return ONLY valid JSON:
     {{
       "cluster_id": 0,
       "theme": "...",
-      "gaps": [
-        "Underserved audience gap",
-        "Missing format gap"
-      ],
+      "gaps": ["..."],
       "ideas": [
         {{
-          "title": "Scroll-stopping Shorts title",
-          "hook": "<=8 word viral hook",
-          "format": "POV / Challenge / Split-screen / AI filter / Storytime",
-          "whyItWillTrend": "Specific reason this gap will explode",
+          "title": "...",
+          "description": "...",
+          "format": "...",
           "noveltyScore": 1-10
         }}
       ]
@@ -93,16 +79,58 @@ Return ONLY valid JSON:
 }}
 """
 
-
     response = model.generate_content(
         prompt,
         generation_config={
             "response_mime_type": "application/json",
             "temperature": 0.2,
-            "max_output_tokens": 4096
+            "max_output_tokens": 4096   # safer, avoids truncation
         }
     )
+    finish_reason = response.candidates[0].finish_reason
 
-    print("🔥 RAW GEMINI OUTPUT:\n", response.text)
+    print(finish_reason)
 
-    return json.loads(response.text)
+    raw_text = response.text.strip()
+
+    print("🔥 RAW GEMINI OUTPUT:\n", raw_text)
+    
+    if finish_reason == "MAX_TOKENS":
+        print("⚠ Retrying Gemini due to truncation")
+
+        response = model.generate_content(
+            prompt,
+            generation_config={
+                "response_mime_type": "application/json",
+                "temperature": 0.1,
+                "max_output_tokens": 3072
+            }
+        )
+
+        raw_text = response.text.strip()
+
+
+    if not raw_text:
+        return {
+            "cluster_analysis": [],
+            "raw_text": "",
+            "error": "Gemini returned empty response"
+        }
+
+    # Try parsing JSON
+    parsed = extract_json(raw_text)
+
+    # Case 2: JSON parsed successfully
+    if parsed is not None:
+        return {
+            "cluster_analysis": parsed.get("cluster_analysis", []),
+            "raw_text": raw_text,
+            "success": True
+        }
+
+    # Case 3: JSON invalid → send raw text fallback
+    return {
+        "cluster_analysis": [],
+        "raw_text": raw_text,
+        "error": "Gemini output malformed, returning raw text"
+    }

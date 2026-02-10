@@ -1,41 +1,9 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
+from keybert import KeyBERT
+from sentence_transformers import SentenceTransformer
 
+embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
-# -------- Keyword Extraction --------
-def extract_keywords(texts, top_k=6):
-    """
-    Extract top keywords from a cluster using TF-IDF.
-    Handles empty clusters and stopword-only documents safely.
-    """
-
-    # 1. Clean input texts
-    texts = [t.strip() for t in texts if t and t.strip()]
-
-    # 2. If nothing remains, return fallback
-    if len(texts) == 0:
-        return ["general"]
-
-    tfidf = TfidfVectorizer(
-        stop_words="english",
-        max_features=1000
-    )
-
-    try:
-        X = tfidf.fit_transform(texts)
-    except ValueError:
-        # Happens when all words are removed as stopwords
-        return ["general"]
-
-    scores = X.sum(axis=0).A1
-    words = tfidf.get_feature_names_out()
-
-    if len(words) == 0:
-        return ["general"]
-
-    ranked = sorted(zip(words, scores), key=lambda x: x[1], reverse=True)
-
-    return [w for w, _ in ranked[:top_k]]
-
+kw_model = KeyBERT(embedding_model)
 # -------- Unified Cluster Summary --------
 def generate_cluster_summary(keywords):
     if not keywords:
@@ -46,3 +14,26 @@ def generate_cluster_summary(keywords):
     description = f"Trending videos related to {', '.join(keywords[:4])}."
 
     return title, description
+
+# =====================================================
+# Keyword Extractor (KeyBERT)
+# =====================================================
+
+def extract_keywords(examples: list, top_n=6):
+    """
+    Extract meaningful cluster keywords using KeyBERT.
+    Uses cluster examples as context.
+    """
+    if not examples:
+        return []
+
+    joined_text = " ".join(examples)
+
+    keywords = kw_model.extract_keywords(
+        joined_text,
+        keyphrase_ngram_range=(1, 2),
+        stop_words="english",
+        top_n=top_n
+    )
+
+    return [kw[0] for kw in keywords]
