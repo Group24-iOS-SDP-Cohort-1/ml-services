@@ -43,22 +43,26 @@ For EACH cluster, generate exactly ONE scroll-stopping Shorts idea.
 Your job is to find CONTENT GAPS creators are NOT doing yet.
 
 STRICT RULES:
-- Output must be VALID JSON ONLY (no markdown, no commentary)
+- Output must be VALID JSON ONLY (no markdown, no extra text)
 - Exactly 1 idea per cluster
-- Description max 8 words
-- title max 12 words; Title must be catchy, fun, and YouTube-attractive
-- No multiline text, no unfinished quotes
-- Do NOT suggest:
-  • testing viral hacks
-  • reviewing weird tools
-  • generic transformations
-  • reaction videos
-- Each idea must target a clear audience (teen girls, Indian creators, beginners, etc.)
+- Title: max 12 words, catchy + YouTube-attractive
+- Description: ONE sentence, max 15 words
+- Format: one of [asmr, challenge, advice, tutorial, storytime, aesthetic, comedy]
+- Hashtags: EXACTLY 5, each must start with "#"
+- No multiline text, no unfinished quotes, no trailing commas
+
+DO NOT suggest:
+- testing viral hacks
+- reviewing weird tools
+- generic transformations
+- reaction videos
+
+Each idea must target a clear audience (teen girls, Indian creators, beginners, etc.)
 
 Clusters:
 {json.dumps(payload['clusters'], indent=2)}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON in this exact structure:
 
 {{
   "cluster_analysis": [
@@ -71,6 +75,7 @@ Return ONLY valid JSON:
           "title": "...",
           "description": "...",
           "format": "...",
+          "hashtags": ["#tag1","#tag2","#tag3","#tag4","#tag5"],
           "noveltyScore": 1-10
         }}
       ]
