@@ -19,8 +19,10 @@ def run_hdbscan(
     X = normalize(X)
 
     # -------- PCA for stability --------
-    if X.shape[0] >= 5:
-        X = PCA(n_components=min(10, X.shape[1])).fit_transform(X)
+#    if X.shape[0] >= 20:
+#       n_components = min(10, X.shape[0], X.shape[1])
+#        X = PCA(n_components=n_components).fit_transform(X)
+
 
     # -------- Run HDBSCAN --------
     clusterer = hdbscan.HDBSCAN(

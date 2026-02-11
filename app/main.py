@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
-
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -99,12 +100,21 @@ def cluster_texts(payload: ClusterRequest):
         )
 
     # -------- Embeddings --------
+# =====================================================
+    #  STEP 1: Generate Embeddings (Texts + Query)
+    # =====================================================
     try:
-        embeddings = embedding_model.encode(
+        text_embeddings = embedding_model.encode(
             payload.texts,
             convert_to_numpy=True,
-            normalize_embeddings=False
-        ).tolist()
+            normalize_embeddings=True
+        )
+
+        query_embedding = embedding_model.encode(
+            [payload.query],
+            convert_to_numpy=True,
+            normalize_embeddings=True
+        )
 
     except Exception as e:
         raise HTTPException(
@@ -112,10 +122,33 @@ def cluster_texts(payload: ClusterRequest):
             detail=f"Embedding generation failed: {str(e)}"
         )
 
-    # -------- Clustering + Labelling --------
+    # =====================================================
+    # ✅ STEP 2: Compute Semantic Similarity
+    # =====================================================
+    similarities = cosine_similarity(
+        text_embeddings,
+        query_embedding
+    ).flatten()
+
+    # Combine texts + embeddings + similarity
+    combined = list(zip(payload.texts, text_embeddings, similarities))
+
+    # Sort by similarity (highest first)
+    combined.sort(key=lambda x: x[2], reverse=True)
+
+    # =====================================================
+    # ✅ STEP 3: Keep Top 60% Relevant Videos
+    # =====================================================
+    keep_count = max(15, int(len(combined) * 0.6))
+    filtered = combined[:keep_count]
+
+    filtered_texts = [item[0] for item in filtered]
+    filtered_embeddings = [item[1].tolist() for item in filtered]
+
+        # -------- Clustering + Labelling --------
     raw_result = run_hdbscan(
-        embeddings=embeddings,
-        texts=payload.texts,
+        embeddings=filtered_embeddings,
+        texts=filtered_texts,
         min_cluster_size=payload.min_cluster_size,
         min_samples=payload.min_samples
     )
